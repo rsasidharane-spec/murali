@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sri Sairam Bus Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#f1f3f4;--card:#fff;--ink:#202124;--mute:#5f6368;--line:#dadce0;--accent:#1a73e8;--onaccent:#fff;--ok:#188038;--warn:#e37400;--bad:#d93025}
+:root[data-theme=dark]{--bg:#202124;--card:#303134;--ink:#e8eaed;--mute:#9aa0a6;--line:#3c4043;--accent:#8ab4f8;--onaccent:#202124;--ok:#81c995;--warn:#fdd663;--bad:#f28b82}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Roboto,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--card);color:var(--ink);box-shadow:0 1px 4px #0003;position:relative;z-index:2}
+header h1{font-size:1.1rem;margin:0;flex:1}
+header h1 small{display:block;font-weight:400;opacity:.7;font-size:.75rem}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.hbtn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:18px;padding:6px 14px}
+.hbtn.on{background:var(--accent);color:var(--onaccent);border-color:var(--accent);font-weight:700}
+#banner{background:#fbbc04;color:#202124;padding:8px 16px;font-weight:600;display:none}
+#netbar{background:var(--bad);color:#fff;padding:6px 16px;display:none;text-align:center}
+#map{height:56vh;min-height:280px;z-index:0}
+:root[data-theme=dark] .street-tile{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
+main{max-width:720px;margin:0 auto;padding:12px 16px 40px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:2px solid var(--line);background:var(--card);border-radius:10px;font-weight:600}
+.tabs button.on{border-color:var(--accent);background:var(--accent);color:var(--onaccent)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.chip{flex:none;border:2px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;display:flex;gap:8px;align-items:center}
+.chip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.badge{font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:999px;border:1.5px solid currentColor}
+.ontime{color:var(--ok)}.delayed{color:var(--warn)}.off{color:var(--bad)}
+.eta{font-size:2rem;font-weight:800;line-height:1}
+.eta small{font-size:.9rem;font-weight:500;color:var(--mute)}
+.mute{color:var(--mute);font-size:.9rem}
+ul.stops{list-style:none;margin:0;padding:0}
+ul.stops li{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+ul.stops li:first-child{border-top:0}
+.sname{flex:1}.sname b{display:block}
+.star{background:none;border:0;font-size:1.4rem;color:var(--mute)}
+.star.on{color:#e0a800}
+.field{display:block;margin:10px 0}
+.field span{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+.field select,.field input{width:100%;padding:10px;border:2px solid var(--line);border-radius:8px;background:var(--bg)}
+.btn{width:100%;padding:14px;border:0;border-radius:10px;background:var(--accent);color:var(--onaccent);font-weight:700;font-size:1.05rem}
+.btn.stop{background:var(--bad);color:#fff}
+.btn.alt{background:transparent;border:2px solid var(--line);color:var(--ink);margin-top:8px}
+.err{color:var(--bad);margin:8px 0;min-height:1.2em}
+.busicon{font-size:22px;text-align:center;filter:drop-shadow(0 1px 2px #0006)}
+.busmk{display:flex;flex-direction:column;align-items:center;width:70px}
+.bno{font:700 11px/1 Roboto,system-ui,sans-serif;color:#fff;padding:3px 8px;border-radius:10px;border:1.5px solid #fff;box-shadow:0 1px 4px #0007;white-space:nowrap}
+.mapbtns a{width:44px!important;font-size:12px;font-weight:700;cursor:pointer}
+.leaflet-control-layers,.leaflet-bar{border-radius:8px!important;box-shadow:0 1px 5px #0005!important;border:0!important}
+#login{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.loginbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;width:100%;max-width:420px}
+.loginbox h2{margin:0 0 4px;font-size:1.3rem}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Campus Bus Tracker<small id="sub"></small></h1>
+  <button class="hbtn" id="modeBtn" title="Switch between demo and live GPS">Demo</button>
+  <button class="hbtn" id="themeBtn" aria-label="Toggle dark mode">Dark</button>
+</header>
+<div id="login" class="hidden">
+  <div class="loginbox">
+    <h2 id="lTitle"></h2>
+    <p class="mute">Enter your details and pick your bus route. You will only see that route.</p>
+    <label class="field"><span>Student name</span><input id="lName" maxlength="40" autocomplete="name"></label>
+    <label class="field"><span>Student ID (exactly 10 characters)</span><input id="lId" maxlength="10" autocapitalize="characters" autocomplete="off" placeholder="e.g. 2021CSE001"></label>
+    <label class="field"><span>Your bus route</span><select id="lRoute"></select></label>
+    <div class="err" id="lErr"></div>
+    <button class="btn" id="lGo">Show my bus</button>
+    <button class="btn alt" id="lDrv">I am a driver</button>
+  </div>
+</div>
+<div id="netbar">You are offline. Showing the last known positions.</div>
+<div id="banner"></div>
+<div id="map"></div>
+<main>
+  <div class="tabs">
+    <button id="tabS" class="on">Student</button>
+    <button id="tabD">Driver</button>
+  </div>
+
+  <!-- STUDENT VIEW -->
+  <section id="student">
+    <div class="card" id="profile"></div>
+    <div class="card" id="myStop"></div>
+    <div class="card">
+      <div class="row"><b id="rname"></b><span class="badge" id="rstatus"></span></div>
+      <div class="mute" id="rinfo"></div>
+      <ul class="stops" id="stops"></ul>
+    </div>
+  </section>
+
+  <!-- DRIVER VIEW -->
+  <section id="driver" class="hidden">
+    <div class="card">
+      <label class="field"><span>Bus number</span><select id="dBus"></select></label>
+      <label class="field"><span>PIN</span><input id="dPin" type="password" inputmode="numeric" autocomplete="off"></label>
+      <div class="err" id="dErr"></div>
+      <button class="btn" id="dStart">Start sharing location</button>
+      <button class="btn alt hidden" id="dDelay">Mark route as delayed</button>
+      <p class="mute" id="dInfo">Keep this page open while driving. Location is sent about every 5 seconds.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ============================================================
+   1. EDIT THIS: your college, routes, stops and buses
+   Stop coordinates are APPROXIMATE samples near West Tambaram.
+   Check each stop in Google Maps (right-click a place to copy its
+   lat/lng) and fix names, order and times to match your real routes.
+   Each route lists stops in pickup order and ends at the college.
+   ============================================================ */
+const DATA = {
+  college: "Sri Sairam Engineering College",
+  city: "West Tambaram, Chennai",
+  center: [12.9604, 80.056],
+  announcement: "Route 2 and Route 7 are running about 10 minutes late due to traffic.",
+  routes: [
+    { id: "r1", name: "Route 1: Tambaram", color: "#e63946", status: "ontime",
+      stops: [
+        { name: "Tambaram Sanatorium", lat: 12.9385, lng: 80.1215, time: "07:30" },
+        { name: "Tambaram Railway Station", lat: 12.9249, lng: 80.1175, time: "07:40" },
+        { name: "Irumbuliyur", lat: 12.923, lng: 80.105, time: "07:50" },
+        { name: "Peerkankaranai", lat: 12.91, lng: 80.099, time: "07:58" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:12" } ] },
+    { id: "r2", name: "Route 2: Chromepet", color: "#f4802a", status: "delayed",
+      stops: [
+        { name: "Pallavaram", lat: 12.9675, lng: 80.1491, time: "07:20" },
+        { name: "Chromepet", lat: 12.9516, lng: 80.1462, time: "07:28" },
+        { name: "Tambaram Railway Station", lat: 12.9249, lng: 80.1175, time: "07:45" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:14" } ] },
+    { id: "r3", name: "Route 3: Velachery", color: "#2a9d8f", status: "ontime",
+      stops: [
+        { name: "Velachery", lat: 12.9815, lng: 80.218, time: "06:50" },
+        { name: "Madipakkam", lat: 12.964, lng: 80.198, time: "07:00" },
+        { name: "Medavakkam", lat: 12.921, lng: 80.192, time: "07:15" },
+        { name: "Selaiyur", lat: 12.906, lng: 80.142, time: "07:35" },
+        { name: "Camp Road", lat: 12.93, lng: 80.133, time: "07:45" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:16" } ] },
+    { id: "r4", name: "Route 4: Guindy", color: "#1d70b8", status: "ontime",
+      stops: [
+        { name: "Guindy", lat: 13.0067, lng: 80.2206, time: "06:50" },
+        { name: "St. Thomas Mount", lat: 12.996, lng: 80.198, time: "07:00" },
+        { name: "Pallavaram", lat: 12.9675, lng: 80.1491, time: "07:20" },
+        { name: "Chromepet", lat: 12.9516, lng: 80.1462, time: "07:28" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:18" } ] },
+    { id: "r5", name: "Route 5: Porur - Kundrathur", color: "#7b5cd6", status: "ontime",
+      stops: [
+        { name: "Porur", lat: 13.0382, lng: 80.1565, time: "07:10" },
+        { name: "Kundrathur", lat: 12.998, lng: 80.096, time: "07:35" },
+        { name: "Thirumudivakkam", lat: 12.978, lng: 80.109, time: "07:45" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:20" } ] },
+    { id: "r6", name: "Route 6: Urapakkam - Vandalur", color: "#c2185b", status: "ontime",
+      stops: [
+        { name: "Urapakkam", lat: 12.857, lng: 80.068, time: "07:10" },
+        { name: "Kilambakkam", lat: 12.878, lng: 80.078, time: "07:18" },
+        { name: "Vandalur", lat: 12.892, lng: 80.081, time: "07:25" },
+        { name: "Perungalathur", lat: 12.9034, lng: 80.089, time: "07:35" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:22" } ] },
+    { id: "r7", name: "Route 7: Madambakkam - Selaiyur", color: "#6a994e", status: "delayed",
+      stops: [
+        { name: "Madambakkam", lat: 12.885, lng: 80.152, time: "07:20" },
+        { name: "Selaiyur", lat: 12.906, lng: 80.142, time: "07:30" },
+        { name: "Sembakkam", lat: 12.919, lng: 80.145, time: "07:40" },
+        { name: "Irumbuliyur", lat: 12.923, lng: 80.105, time: "07:52" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:24" } ] },
+    { id: "r8", name: "Route 8: Pammal - Anakaputhur", color: "#b08900", status: "ontime",
+      stops: [
+        { name: "Pammal", lat: 12.969, lng: 80.134, time: "07:25" },
+        { name: "Anakaputhur", lat: 12.957, lng: 80.129, time: "07:32" },
+        { name: "Thiruneermalai", lat: 12.951, lng: 80.118, time: "07:40" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:26" } ] },
+    { id: "r9", name: "Route 9: Tirusulam - Hasthinapuram", color: "#00838f", status: "ontime",
+      stops: [
+        { name: "Tirusulam", lat: 12.983, lng: 80.165, time: "07:10" },
+        { name: "Pallavaram", lat: 12.9675, lng: 80.1491, time: "07:20" },
+        { name: "Hasthinapuram", lat: 12.948, lng: 80.133, time: "07:35" },
+        { name: "Camp Road", lat: 12.93, lng: 80.133, time: "07:45" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:28" } ] },
+    { id: "r10", name: "Route 10: Potheri - Guduvanchery", color: "#5d4037", status: "off",
+      stops: [
+        { name: "Potheri", lat: 12.823, lng: 80.042, time: "06:50" },
+        { name: "Guduvanchery", lat: 12.845, lng: 80.06, time: "07:05" },
+        { name: "Mudichur", lat: 12.909, lng: 80.06, time: "07:40" },
+        { name: "Sri Sairam Engg. College", lat: 12.9604, lng: 80.056, time: "08:30" } ] }
+  ],
+  // PINs are visible to anyone who views the page source. Fine for a trial;
+  // use Firebase Authentication for real security.
+  buses: [
+    { id: "BUS-1", route: "r1", pin: "1111" },
+    { id: "BUS-2", route: "r2", pin: "2222" },
+    { id: "BUS-3", route: "r3", pin: "3333" },
+    { id: "BUS-4", route: "r4", pin: "4444" },
+    { id: "BUS-5", route: "r5", pin: "5555" },
+    { id: "BUS-6", route: "r6", pin: "6666" },
+    { id: "BUS-7", route: "r7", pin: "7777" },
+    { id: "BUS-8", route: "r8", pin: "8888" },
+    { id: "BUS-9", route: "r9", pin: "9999" },
+    { id: "BUS-10", route: "r10", pin: "1234" }
+  ]
+};
+
+/* ============================================================
+   2. FIREBASE: paste your config here to enable Live mode.
+   Leave apiKey empty to stay in Demo mode only.
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "", authDomain: "", databaseURL: "", projectId: "", appId: ""
+};
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const AVG_SPEED = 5.5;      // metres per second (about 20 km/h) used for ETAs
+const SIM = 20;             // demo buses move this many times faster than real life
+const STALE_MS = 60000;     // live bus is "not running" after 60 s of silence
+const rad = Math.PI / 180;
+function haversine(a, b) {
+  const dLat = (b[0]-a[0])*rad, dLng = (b[1]-a[1])*rad;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLng/2)**2;
+  return 12742000 * Math.asin(Math.sqrt(x));
+}
+function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+
+/* ---------- route geometry: each route is a closed loop through its stops ---------- */
+function setGeometry(r, pts) {                         // pts = list of [lat,lng] along the road
+  r.pts = pts; r.cum = [0];
+  for (let i = 1; i < pts.length; i++) r.cum.push(r.cum[i-1] + haversine(pts[i-1], pts[i]));
+  r.len = r.cum[r.cum.length-1];
+  r.stopD = []; let from = 0;                           // distance of each stop along the loop
+  r.stops.forEach(s => { from = project(r, s.lat, s.lng, from); r.stopD.push(from); });
+}
+// Start with straight lines between stops; real road geometry replaces them once loaded.
+DATA.routes.forEach(r => { const p = r.stops.map(s => [s.lat, s.lng]); p.push(p[0]); setGeometry(r, p); });
+const routeById = id => DATA.routes.find(r => r.id === id);
+function posAt(r, d) {                                  // distance along loop -> [lat,lng]
+  d = ((d % r.len) + r.len) % r.len;
+  let i = 1; while (r.cum[i] < d) i++;
+  const u = (d - r.cum[i-1]) / (r.cum[i] - r.cum[i-1]);
+  return [r.pts[i-1][0] + (r.pts[i][0]-r.pts[i-1][0])*u, r.pts[i-1][1] + (r.pts[i][1]-r.pts[i-1][1])*u];
+}
+function project(r, lat, lng, fromD = 0) {                         // GPS point -> distance along loop
+  let best = Infinity, bestD = 0;
+  const k = Math.cos(lat * rad);
+  for (let i = 1; i < r.pts.length; i++) {
+    if (r.cum[i] < fromD - 1) continue;                 // only look ahead of the previous stop
+    const ax = r.pts[i-1][1]*k, ay = r.pts[i-1][0], bx = r.pts[i][1]*k, by = r.pts[i][0];
+    const dx = bx-ax, dy = by-ay, l2 = dx*dx + dy*dy || 1e-12;
+    const u = Math.max(0, Math.min(1, ((lng*k-ax)*dx + (lat-ay)*dy) / l2));
+    const px = ax+dx*u, py = ay+dy*u, dd = (lng*k-px)**2 + (lat-py)**2;
+    if (dd < best) { best = dd; bestD = r.cum[i-1] + (r.cum[i]-r.cum[i-1])*u; }
+  }
+  return bestD;
+}
+
+/* ---------- state ---------- */
+let mode = store("mode") || "demo";                     // "demo" or "live"
+let student = store("student");                       // {name, id, route} saved on this phone
+let selected = (student && routeById(student.route)) ? student.route : DATA.routes[0].id;
+let buses = {};      // id -> {id, route, lat, lng, d, t}
+let status = {};     // routeId -> "ontime" | "delayed"  (live mode)
+let db = null;
+let sim = DATA.buses.map((b, i) => ({ id: b.id, route: b.route, f: (i * .31) % 1 }));
+
+/* ---------- map ---------- */
+const map = L.map("map", { maxZoom: 19 }).setView(DATA.center, 14);
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+const satellite = L.tileLayer(ESRI + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }).addTo(map);
+const street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, className: "street-tile", attribution: "&copy; OpenStreetMap contributors" });
+// City and road names drawn on top of the satellite photo (no API key needed)
+const places = L.tileLayer(ESRI + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, zIndex: 5 }).addTo(map);
+const roadNames = L.tileLayer(ESRI + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, zIndex: 4 }).addTo(map);
+L.control.layers({ "Satellite": satellite, "Street map": street }, { "City names": places, "Road names": roadNames }).addTo(map);
+const layers = { routes: L.layerGroup().addTo(map), stops: L.layerGroup().addTo(map), buses: L.layerGroup().addTo(map) };
+const busMarkers = {};
+
+function drawRoutes() {
+  layers.routes.clearLayers(); layers.stops.clearLayers();
+  DATA.routes.forEach(r => {
+    if (r.id !== selected) return;                        // students only see their own route
+    const on = true;
+    if (on) L.polyline(r.pts, { color: "#fff", weight: 9, opacity: .85 }).addTo(layers.routes);
+    L.polyline(r.pts, { color: r.color, weight: on ? 5 : 3, opacity: on ? 1 : .6 }).addTo(layers.routes);
+    if (on) r.stops.forEach(s => L.circleMarker([s.lat, s.lng], { radius: 7, color: r.color, fillColor: "#fff", fillOpacity: 1, weight: 3 }).bindTooltip(s.name).addTo(layers.stops));
+  });
+}
+function drawBuses() {
+  const show = {};                                        // only buses on the selected route
+  Object.values(buses).forEach(b => {
+    const r = routeById(b.route); if (!r || b.route !== selected) return;
+    if (!(mode === "demo" || Date.now() - b.t < STALE_MS)) return;
+    show[b.id] = 1;
+    let m = busMarkers[b.id];
+    if (!m) { m = busMarkers[b.id] = L.marker([b.lat, b.lng], { icon: L.divIcon({ className: "", html: `<div class="busmk"><span class="bno" style="background:${r.color}">Bus ${b.id.replace("BUS-", "")}</span><div class="busicon">🚌</div></div>`, iconSize: [70, 46], iconAnchor: [35, 42] }), zIndexOffset: 1000 }).bindTooltip(b.id + " · " + r.name).addTo(layers.buses); }
+    m.setLatLng([b.lat, b.lng]);
+  });
+  Object.keys(busMarkers).forEach(id => { if (!show[id]) { layers.buses.removeLayer(busMarkers[id]); delete busMarkers[id]; } });
+}
+
+/* ---------- ETA + status ---------- */
+function activeBuses(routeId) {
+  return Object.values(buses).filter(b => b.route === routeId && (mode === "demo" || Date.now() - b.t < STALE_MS));
+}
+function etaFor(r, stopIdx) {                           // best ETA among running buses, in minutes
+  const speed = AVG_SPEED * (mode === "demo" ? SIM : 1);
+  let best = null;
+  activeBuses(r.id).forEach(b => {
+    const ahead = ((r.stopD[stopIdx] - b.d) % r.len + r.len) % r.len;
+    const mins = ahead / speed / 60;
+    if (!best || mins < best.mins) best = { mins, bus: b.id };
+  });
+  return best;
+}
+function routeStatus(r) {
+  if (mode === "demo") return r.status;
+  if (!activeBuses(r.id).length) return "off";
+  return status[r.id] === "delayed" ? "delayed" : "ontime";
+}
+const LABEL = { ontime: "On time", delayed: "Delayed", off: "Not running" };
+function fmtEta(e) {
+  if (!e) return '<span class="mute">No bus</span>';
+  const m = Math.round(e.mins);
+  return m < 1 ? '<span class="eta">Now</span>' : `<span class="eta">${m}<small> min</small></span>`;
+}
+
+/* ---------- student UI ---------- */
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function renderChips() {                                  // the student's profile card
+  if (!student) { $("profile").innerHTML = `<b>Welcome</b><div class="mute">Sign in to see your bus.</div><button class="btn" id="pIn" style="margin-top:10px">Sign in</button>`; $("pIn").onclick = showLogin; return; }
+  const r = routeById(selected);
+  $("profile").innerHTML = `<div class="mute">Student dashboard</div>
+    <div class="row"><b style="font-size:1.2rem">${esc(student.name)}</b><span class="mute">ID ${esc(student.id)}</span></div>
+    <div style="margin:8px 0"><span class="dot" style="background:${r.color}"></span> ${esc(r.name)}</div>
+    <div class="row"><button class="btn alt" id="pChg" style="flex:1;margin:0">Change route</button><button class="btn alt" id="pOut" style="flex:1;margin:0">Log out</button></div>`;
+  $("pChg").onclick = showLogin;
+  $("pOut").onclick = () => { student = null; store("student", null); $("lName").value = ""; $("lId").value = ""; renderChips(); showLogin(); };
+}
+function fitAll() { map.fitBounds(DATA.routes.flatMap(r => r.stops.map(s => [s.lat, s.lng])), { padding: [20, 20] }); }
+function fitRoute() { map.fitBounds(routeById(selected).pts, { padding: [30, 30] }); }
+function renderPanel() {
+  const r = routeById(selected), st = routeStatus(r), mine0 = store("myStop"), mine = mine0 && mine0.route === selected ? mine0 : null;
+  $("rname").textContent = r.name;
+  $("rstatus").textContent = LABEL[st]; $("rstatus").className = "badge " + st;
+  const n = activeBuses(r.id).length;
+  $("rinfo").textContent = (r.straight ? "Road routing unavailable, showing straight lines. " : "") + (n ? `${n} bus${n>1?"es":""} running` : (mode === "live" ? "No bus is sharing its location right now." : "No bus running."));
+  $("stops").innerHTML = r.stops.map((s, i) => `<li>
+      <div class="sname"><b>${s.name}</b><span class="mute">Scheduled ${s.time}</span></div>
+      <div>${fmtEta(etaFor(r, i))}</div>
+      <button class="star ${mine && mine.route===r.id && mine.idx===i ? "on":""}" data-i="${i}" aria-label="Set as my stop">${mine && mine.route===r.id && mine.idx===i ? "★":"☆"}</button></li>`).join("");
+  $("stops").querySelectorAll(".star").forEach(b => b.onclick = () => { store("myStop", { route: r.id, idx: +b.dataset.i }); renderPanel(); });
+  // My stop card
+  if (mine && routeById(mine.route)) {
+    const mr = routeById(mine.route), e = etaFor(mr, mine.idx);
+    $("myStop").innerHTML = `<div class="row"><div><div class="mute">My stop</div><b>${mr.stops[mine.idx].name}</b> <span class="mute">(${mr.name.split(":")[0]})</span></div><div>${fmtEta(e)}</div></div>
+      ${e ? `<div class="mute">Next bus: ${e.bus}</div>` : `<div class="mute">No bus is on its way. Check the schedule.</div>`}`;
+  } else $("myStop").innerHTML = `<b>My stop</b><div class="mute">Tap ☆ next to a stop to see its next bus here.</div>`;
+}
+function refresh() { drawBuses(); renderPanel(); }
+
+/* ---------- demo simulation ---------- */
+setInterval(() => {
+  if (mode !== "demo") return;
+  sim.forEach(s => {
+    const r = routeById(s.route);
+    if (r.status === "off") return;                       // "off" routes have no bus in demo
+    s.f = (s.f + AVG_SPEED * SIM / r.len) % 1;            // runs once per second
+    s.d = s.f * r.len;
+    const p = posAt(r, s.d);
+    buses[s.id] = { id: s.id, route: s.route, lat: p[0], lng: p[1], d: ((s.d % r.len) + r.len) % r.len, t: Date.now() };
+  });
+  refresh();
+}, 1000);
+
+/* ---------- live mode (Firebase) ---------- */
+const hasFirebase = !!FIREBASE_CONFIG.apiKey && typeof firebase !== "undefined";
+function startLive() {
+  if (!hasFirebase) return false;
+  try {
+    if (!db) { firebase.initializeApp(FIREBASE_CONFIG); db = firebase.database(); }
+    db.ref("buses").on("value", snap => {
+      const v = snap.val() || {}; buses = {};
+      Object.keys(v).forEach(id => { const b = v[id], r = routeById(b.route); if (r) buses[id] = { id, route: b.route, lat: b.lat, lng: b.lng, t: b.t, d: project(r, b.lat, b.lng) }; });
+      refresh();
+    }, e => showErr("Could not read live data: " + e.message));
+    db.ref("status").on("value", s => { status = s.val() || {}; refresh(); });
+    db.ref("announcement").on("value", s => setBanner(s.val()));
+    return true;
+  } catch (e) { showErr("Firebase setup problem: " + e.message); return false; }
+}
+function stopLive() { if (db) { db.ref("buses").off(); db.ref("status").off(); db.ref("announcement").off(); } }
+function setBanner(t) { $("banner").textContent = t || ""; $("banner").style.display = t ? "block" : "none"; }
+function showErr(t) { $("dErr").textContent = t; }
+
+function setMode(m) {
+  if (m === "live" && !hasFirebase) { alert("Live mode needs Firebase. Paste your config into FIREBASE_CONFIG at the top of the script."); m = "demo"; }
+  stopLive(); mode = m; store("mode", m); buses = {};
+  $("modeBtn").textContent = m === "live" ? "Live GPS" : "Demo"; $("modeBtn").classList.toggle("on", m === "live");
+  if (m === "live") startLive(); else setBanner(DATA.announcement);
+  refresh();
+}
+$("modeBtn").onclick = () => setMode(mode === "demo" ? "live" : "demo");
+
+/* ---------- driver page ---------- */
+let watchId = null, lastSend = 0, delayed = false, driverBus = null;
+$("dBus").innerHTML = DATA.buses.map(b => `<option value="${b.id}">${b.id} (${routeById(b.route).name.split(":")[0]})</option>`).join("");
+$("dStart").onclick = () => {
+  if (watchId !== null) return stopSharing();
+  const b = DATA.buses.find(x => x.id === $("dBus").value);
+  if (!b || $("dPin").value !== b.pin) return showErr("Wrong PIN for " + $("dBus").value + ".");
+  if (!hasFirebase) return showErr("Live sharing needs Firebase. Add your config at the top of the script.");
+  if (!navigator.geolocation) return showErr("This browser cannot share location.");
+  if (!db) { firebase.initializeApp(FIREBASE_CONFIG); db = firebase.database(); }
+  showErr(""); driverBus = b; selected = b.route; drawRoutes(); drawBuses(); renderPanel(); fitRoute(); loadRoadRoutes();
+  watchId = navigator.geolocation.watchPosition(pos => {
+    if (Date.now() - lastSend < 5000) return; lastSend = Date.now();
+    db.ref("buses/" + b.id).set({ route: b.route, lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() })
+      .catch(e => showErr("Could not send location: " + e.message));
+    $("dInfo").textContent = "Sharing location. Last sent " + new Date().toLocaleTimeString() + ".";
+  }, err => {
+    showErr(err.code === 1 ? "Location permission denied. Allow location in your browser settings and try again." : "Could not get your location: " + err.message);
+    stopSharing();
+  }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+  $("dStart").textContent = "Stop sharing location"; $("dStart").classList.add("stop"); $("dDelay").classList.remove("hidden");
+};
+function stopSharing() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null;
+  if (db && driverBus) db.ref("buses/" + driverBus.id).remove();
+  $("dStart").textContent = "Start sharing location"; $("dStart").classList.remove("stop"); $("dDelay").classList.add("hidden");
+  $("dInfo").textContent = "Sharing stopped.";
+}
+$("dDelay").onclick = () => {
+  delayed = !delayed; db.ref("status/" + driverBus.route).set(delayed ? "delayed" : "ontime");
+  $("dDelay").textContent = delayed ? "Mark route as on time" : "Mark route as delayed";
+};
+window.addEventListener("beforeunload", () => { if (watchId !== null && db && driverBus) db.ref("buses/" + driverBus.id).remove(); });
+
+/* ---------- tabs, theme, offline ---------- */
+function tab(driver) {
+  $("student").classList.toggle("hidden", driver); $("driver").classList.toggle("hidden", !driver);
+  $("tabS").classList.toggle("on", !driver); $("tabD").classList.toggle("on", driver);
+  if (!driver && student && selected !== student.route) { selected = student.route; applyStudent(); }
+}
+$("tabS").onclick = () => tab(false); $("tabD").onclick = () => tab(true);
+function theme(t) { document.documentElement.dataset.theme = t; $("themeBtn").textContent = t === "dark" ? "Light" : "Dark"; store("theme", t); }
+$("themeBtn").onclick = () => theme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+theme(store("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+const net = () => $("netbar").style.display = navigator.onLine ? "none" : "block";
+addEventListener("online", net); addEventListener("offline", net); net();
+
+/* ---------- real road routes (free OSRM server, no key; cached in the browser) ---------- */
+function hash(t) { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) | 0; return h; }
+async function loadRoadRoutes() {                        // loads only the route the student picked
+  const r = routeById(selected); if (!r || r.loaded) return;
+  r.loaded = true;
+  const ll = r.stops.map(s => [s.lat, s.lng]);
+  const key = "road_" + r.id + "_" + hash(JSON.stringify(ll));   // changes when you edit stops
+  let pts = store(key);
+  if (!pts) {
+    try {
+      const coords = ll.concat([ll[0]]).map(p => p[1] + "," + p[0]).join(";");  // loop back to the first stop
+      const res = await fetch("https://router.project-osrm.org/route/v1/driving/" + coords + "?overview=full&geometries=geojson");
+      const j = await res.json();
+      if (j.code !== "Ok") throw new Error(j.code);
+      pts = j.routes[0].geometry.coordinates.map(c => [Math.round(c[1]*1e5)/1e5, Math.round(c[0]*1e5)/1e5]);
+      store(key, pts);
+    } catch (e) { r.straight = true; renderPanel(); return; }
+  }
+  setGeometry(r, pts); r.straight = false;
+  drawRoutes(); renderPanel();
+}
+
+/* ---------- start ---------- */
+$("title").firstChild.textContent = DATA.college + " Bus Tracker";
+$("sub").textContent = DATA.city;
+L.marker(DATA.center, { icon: L.divIcon({ className: "", html: '<div class="busicon">🎓</div>', iconSize: [28, 28] }) }).bindTooltip(DATA.college).addTo(map);
+const ctl = L.control({ position: "topleft" });
+ctl.onAdd = () => { const d = L.DomUtil.create("div", "leaflet-bar mapbtns"); d.innerHTML = '<a id="bAll" title="Zoom to my route">Route</a><a id="bCol" title="Zoom to the college">🎓</a>'; L.DomEvent.disableClickPropagation(d); return d; };
+ctl.addTo(map);
+$("bAll").onclick = fitRoute; $("bCol").onclick = () => map.setView(DATA.center, 17);
+/* ---------- student sign-in ---------- */
+$("lRoute").innerHTML = DATA.routes.map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+function showLogin() {
+  $("lTitle").textContent = DATA.college + " Bus Tracker";
+  if (student) { $("lName").value = student.name; $("lId").value = student.id; $("lRoute").value = student.route; }
+  $("lErr").textContent = ""; $("login").classList.remove("hidden");
+}
+function applyStudent() { drawRoutes(); drawBuses(); renderChips(); renderPanel(); fitRoute(); loadRoadRoutes(); }
+$("lGo").onclick = () => {
+  const name = $("lName").value.trim(), id = $("lId").value.trim().toUpperCase();
+  if (name.length < 2) return void ($("lErr").textContent = "Enter your full name.");
+  if (!/^[A-Z0-9]{10}$/.test(id)) return void ($("lErr").textContent = "Student ID must be exactly 10 letters or numbers (you entered " + id.length + ").");
+  student = { name, id, route: $("lRoute").value }; store("student", student);
+  selected = student.route; $("login").classList.add("hidden"); applyStudent();
+};
+$("lDrv").onclick = () => { $("login").classList.add("hidden"); tab(true); };
+
+drawRoutes(); renderChips(); fitRoute(); setMode(mode); loadRoadRoutes();
+if (!student) showLogin();
+</script>
+</body>
+</html>
